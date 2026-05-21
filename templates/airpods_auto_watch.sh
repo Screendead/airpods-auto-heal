@@ -59,38 +59,38 @@ is_valid_bt_id() {
   [[ "$id" =~ ^([[:xdigit:]]{2}[:-]){5}[[:xdigit:]]{2}$ ]]
 }
 
+trim_spaces() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+normalize_value() {
+  local s
+  local first
+  local last
+  s="$(trim_spaces "$1")"
+  if [[ ${#s} -ge 2 ]]; then
+    first="${s:0:1}"
+    last="${s: -1}"
+  else
+    first=""
+    last=""
+  fi
+  if [[ "$first" == '"' && "$last" == '"' ]]; then
+    s="${s:1:${#s}-2}"
+  elif [[ "$first" == "'" && "$last" == "'" ]]; then
+    s="${s:1:${#s}-2}"
+  fi
+  printf '%s' "$s"
+}
+
 load_config() {
   local line
   local key
   local value
   local raw
-
-  trim_spaces() {
-    local s="$1"
-    s="${s#"${s%%[![:space:]]*}"}"
-    s="${s%"${s##*[![:space:]]}"}"
-    printf '%s' "$s"
-  }
-
-  normalize_value() {
-    local s
-    local first
-    local last
-    s="$(trim_spaces "$1")"
-    if [[ ${#s} -ge 2 ]]; then
-      first="${s:0:1}"
-      last="${s: -1}"
-    else
-      first=""
-      last=""
-    fi
-    if [[ "$first" == '"' && "$last" == '"' ]]; then
-      s="${s:1:${#s}-2}"
-    elif [[ "$first" == "'" && "$last" == "'" ]]; then
-      s="${s:1:${#s}-2}"
-    fi
-    printf '%s' "$s"
-  }
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     raw="$(trim_spaces "$line")"
