@@ -12,7 +12,7 @@
 Run before opening a PR:
 
 ```bash
-shellcheck install.sh uninstall.sh templates/*.sh
+shellcheck -s bash install.sh uninstall.sh templates/*.sh tests/smoke.sh
 ./tests/smoke.sh
 ```
 

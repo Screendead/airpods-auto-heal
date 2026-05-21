@@ -127,7 +127,7 @@ fi
 current_airpods_id="$(awk -F= '/^AIRPODS_ID=/{print $2}' "$CONFIG_DIR/config.env" 2>/dev/null | tail -n 1)"
 if [[ -z "$current_airpods_id" ]]; then
   echo "AIRPODS_ID is empty; attempting auto-detection..."
-  candidates="$($APP_DIR/detect_airpods_id.sh --list 2>/dev/null || true)"
+  candidates="$("$APP_DIR/detect_airpods_id.sh" --list 2>/dev/null || true)"
   candidate_count="$(printf '%s\n' "$candidates" | awk 'NF{c++} END{print c+0}')"
 
   if [[ "$candidate_count" -eq 1 ]]; then

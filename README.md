@@ -190,6 +190,12 @@ Shell linting is run in CI using ShellCheck for:
 - `uninstall.sh`
 - `templates/*.sh`
 
+Equivalent local command:
+
+```bash
+shellcheck -s bash install.sh uninstall.sh templates/*.sh tests/smoke.sh
+```
+
 Smoke checks are run in CI via:
 - `tests/smoke.sh`
 

@@ -241,6 +241,7 @@ last_seen_result_epoch=0
 degrade_alert_active=0
 last_degrade_notify_epoch=0
 if [[ -f "$STATE_FILE" ]]; then
+  # shellcheck disable=SC1090
   source "$STATE_FILE" 2>/dev/null || true
 fi
 
