@@ -42,13 +42,25 @@ Edit:
 Default:
 
 ```bash
-AIRPODS_ID=30:7A:D2:8E:97:C4
+AIRPODS_ID=
 ```
 
 Find current connected Bluetooth devices:
 
 ```bash
 blueutil --connected
+```
+
+Auto-detect likely AirPods IDs:
+
+```bash
+~/Library/Application\ Support/airpods-auto-heal/detect_airpods_id.sh --list
+```
+
+Write the best detected candidate into config automatically:
+
+```bash
+~/Library/Application\ Support/airpods-auto-heal/detect_airpods_id.sh --write
 ```
 
 ## Logs

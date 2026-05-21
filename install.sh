@@ -26,6 +26,7 @@ mkdir -p "$APP_DIR" "$CACHE_DIR" "$CONFIG_DIR" "$HOME_DIR/Library/LaunchAgents"
 
 render_template "$ROOT_DIR/templates/airpods_auto_watch.sh" "$APP_DIR/airpods_auto_watch.sh"
 render_template "$ROOT_DIR/templates/airpods_auto_privileged_worker.sh" "$APP_DIR/airpods_auto_privileged_worker.sh"
+install -m 755 "$ROOT_DIR/templates/detect_airpods_id.sh" "$APP_DIR/detect_airpods_id.sh"
 render_template "$ROOT_DIR/templates/com.screendead.airpods-auto.plist" "$USER_AGENT_PATH"
 render_template "$ROOT_DIR/templates/com.screendead.airpods-auto-privileged.plist" "$APP_DIR/com.screendead.airpods-auto-privileged.plist"
 
@@ -33,7 +34,7 @@ chmod 755 "$APP_DIR/airpods_auto_watch.sh" "$APP_DIR/airpods_auto_privileged_wor
 
 if [[ ! -f "$CONFIG_DIR/config.env" ]]; then
   {
-    echo "AIRPODS_ID=30:7A:D2:8E:97:C4"
+    echo "AIRPODS_ID="
   } > "$CONFIG_DIR/config.env"
 fi
 

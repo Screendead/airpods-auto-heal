@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -u
 
-AIRPODS_ID_DEFAULT="30:7A:D2:8E:97:C4"
+AIRPODS_ID_DEFAULT=""
 RESTORE_DELAY_SECONDS=90
 RESTORE_REQUEST_COOLDOWN_SECONDS=300
 REQUEST_MIN_INTERVAL_SECONDS=20
@@ -19,12 +19,25 @@ mkdir -p "$STATE_DIR" "$CONFIG_DIR"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
   {
-    echo "AIRPODS_ID=$AIRPODS_ID_DEFAULT"
+    echo "AIRPODS_ID="
   } >"$CONFIG_FILE"
 fi
 
 AIRPODS_ID="$AIRPODS_ID_DEFAULT"
 source "$CONFIG_FILE" 2>/dev/null || true
+
+if [[ -z "$AIRPODS_ID" && -x "__HOME__/Library/Application Support/airpods-auto-heal/detect_airpods_id.sh" ]]; then
+  AIRPODS_ID="$(__HOME__/Library/Application Support/airpods-auto-heal/detect_airpods_id.sh --first 2>/dev/null || true)"
+fi
+
+if [[ -z "$AIRPODS_ID" ]]; then
+  if [[ ! -f "$STATE_DIR/.airpods_id_missing_logged" ]]; then
+    log_msg "AIRPODS_ID is not configured and no AirPods candidate could be auto-detected."
+    /usr/bin/osascript -e 'display notification "Set AIRPODS_ID in ~/.config/airpods-auto-heal/config.env" with title "AirPods Auto-Heal setup needed"' >/dev/null 2>&1 || true
+    : >"$STATE_DIR/.airpods_id_missing_logged"
+  fi
+  exit 0
+fi
 
 log_msg() {
   printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >>"$LOG_FILE"
