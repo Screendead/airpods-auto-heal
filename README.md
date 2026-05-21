@@ -26,6 +26,9 @@ chmod +x install.sh
 ./install.sh
 ```
 
+During install, if `AIRPODS_ID` is empty, the installer auto-detects likely AirPods devices.
+If multiple candidates are found, it asks you which one to use.
+
 ## Uninstall
 
 ```bash
@@ -54,13 +57,13 @@ blueutil --connected
 Auto-detect likely AirPods IDs:
 
 ```bash
-~/Library/Application\ Support/airpods-auto-heal/detect_airpods_id.sh --list
+"$HOME/Library/Application Support/airpods-auto-heal/detect_airpods_id.sh" --list
 ```
 
 Write the best detected candidate into config automatically:
 
 ```bash
-~/Library/Application\ Support/airpods-auto-heal/detect_airpods_id.sh --write
+"$HOME/Library/Application Support/airpods-auto-heal/detect_airpods_id.sh" --write
 ```
 
 ## Logs

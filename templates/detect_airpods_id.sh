@@ -5,6 +5,7 @@ BLUEUTIL_BIN=""
 CONFIG_DIR="$HOME/.config/airpods-auto-heal"
 CONFIG_FILE="$CONFIG_DIR/config.env"
 MODE="list"
+WRITE_ID=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,8 +18,17 @@ while [[ $# -gt 0 ]]; do
     --write)
       MODE="write"
       ;;
+    --write-id)
+      MODE="write-id"
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing ID value for --write-id" >&2
+        exit 64
+      fi
+      WRITE_ID="$1"
+      ;;
     *)
-      echo "Usage: $0 [--list|--first|--write]" >&2
+      echo "Usage: $0 [--list|--first|--write|--write-id <ID>]" >&2
       exit 64
       ;;
   esac
@@ -48,7 +58,7 @@ resolve_blueutil
 paired_json="$($BLUEUTIL_BIN --paired --format json 2>/dev/null || echo '[]')"
 connected_json="$($BLUEUTIL_BIN --connected --format json 2>/dev/null || echo '[]')"
 
-candidates="$(python3 - <<'PY'
+candidates="$(PAIRED_JSON="$paired_json" CONNECTED_JSON="$connected_json" python3 - <<'PY'
 import json
 import os
 import sys
@@ -109,6 +119,10 @@ fi
 if [[ "$MODE" == "first" ]]; then
   echo "$first_id"
   exit 0
+fi
+
+if [[ "$MODE" == "write-id" ]]; then
+  first_id="$WRITE_ID"
 fi
 
 mkdir -p "$CONFIG_DIR"
