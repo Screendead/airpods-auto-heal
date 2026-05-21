@@ -36,11 +36,21 @@ notify_user() {
   local title="$1"
   local body="$2"
   local subtitle="${3:-}"
+  local esc_title
+  local esc_body
+  local esc_subtitle
+
+  esc_title="${title//\\/\\\\}"
+  esc_title="${esc_title//\"/\\\"}"
+  esc_body="${body//\\/\\\\}"
+  esc_body="${esc_body//\"/\\\"}"
+  esc_subtitle="${subtitle//\\/\\\\}"
+  esc_subtitle="${esc_subtitle//\"/\\\"}"
 
   if [[ -n "$subtitle" ]]; then
-    /usr/bin/osascript -e "display notification \"$body\" with title \"$title\" subtitle \"$subtitle\"" >/dev/null 2>&1 || true
+    /usr/bin/osascript -e "display notification \"$esc_body\" with title \"$esc_title\" subtitle \"$esc_subtitle\"" >/dev/null 2>&1 || true
   else
-    /usr/bin/osascript -e "display notification \"$body\" with title \"$title\"" >/dev/null 2>&1 || true
+    /usr/bin/osascript -e "display notification \"$esc_body\" with title \"$esc_title\"" >/dev/null 2>&1 || true
   fi
 }
 
@@ -190,6 +200,32 @@ save_state() {
   } >"$STATE_FILE"
 }
 
+load_state() {
+  local line
+  local key
+  local value
+  local raw
+
+  [[ ! -f "$STATE_FILE" ]] && return
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    raw="$(trim_spaces "$line")"
+    [[ -z "$raw" || "$raw" == \#* ]] && continue
+    key="$(trim_spaces "${raw%%=*}")"
+    value="$(normalize_value "${raw#*=}")"
+    case "$key" in
+      streak|last_recover_epoch|disconnected_since_epoch|restore_done|last_restore_attempt_epoch|prev_connected|last_request_epoch|last_seen_result_epoch|degrade_alert_active|last_degrade_notify_epoch)
+        if [[ "$value" =~ ^-?[0-9]+$ ]]; then
+          typeset -g "$key=$value"
+        fi
+        ;;
+      last_request_action)
+        last_request_action="$value"
+        ;;
+    esac
+  done <"$STATE_FILE"
+}
+
 notify_completion_if_any() {
   local result_action=""
   local result_exit_code=""
@@ -271,8 +307,7 @@ last_seen_result_epoch=0
 degrade_alert_active=0
 last_degrade_notify_epoch=0
 if [[ -f "$STATE_FILE" ]]; then
-  # shellcheck disable=SC1090
-  source "$STATE_FILE" 2>/dev/null || true
+  load_state
 fi
 
 now_epoch=$(date +%s)
