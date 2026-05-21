@@ -1,6 +1,40 @@
 #!/bin/zsh
 set -euo pipefail
 
+NON_INTERACTIVE=0
+AIRPODS_ID_OVERRIDE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --non-interactive)
+      NON_INTERACTIVE=1
+      ;;
+    --airpods-id)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --airpods-id" >&2
+        exit 64
+      fi
+      AIRPODS_ID_OVERRIDE="$1"
+      ;;
+    -h|--help)
+      cat <<'EOF'
+Usage: ./install.sh [--non-interactive] [--airpods-id <BT_MAC>]
+
+Options:
+  --non-interactive      Avoid prompts; first detected candidate is used.
+  --airpods-id <BT_MAC>  Force a specific AirPods Bluetooth MAC/ID.
+EOF
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 64
+      ;;
+  esac
+  shift
+done
+
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOME_DIR="$HOME"
 USER_NAME="$(id -un)"
@@ -38,6 +72,11 @@ if [[ ! -f "$CONFIG_DIR/config.env" ]]; then
   } > "$CONFIG_DIR/config.env"
 fi
 
+if [[ -n "$AIRPODS_ID_OVERRIDE" ]]; then
+  "$APP_DIR/detect_airpods_id.sh" --write-id "$AIRPODS_ID_OVERRIDE" >/dev/null
+  echo "Configured AIRPODS_ID from --airpods-id: $AIRPODS_ID_OVERRIDE"
+fi
+
 current_airpods_id="$(awk -F= '/^AIRPODS_ID=/{print $2}' "$CONFIG_DIR/config.env" 2>/dev/null | tail -n 1)"
 if [[ -z "$current_airpods_id" ]]; then
   echo "AIRPODS_ID is empty; attempting auto-detection..."
@@ -53,13 +92,15 @@ if [[ -z "$current_airpods_id" ]]; then
     printf '%s\n' "$candidates" | nl -w2 -s'. '
 
     selected_id=""
-    if [[ -t 0 ]]; then
+    if [[ "$NON_INTERACTIVE" -eq 0 && -t 0 ]]; then
       printf "Choose device number [1-%s] (Enter for 1): " "$candidate_count"
       read -r choice
       if [[ -z "$choice" ]]; then
         choice=1
       fi
       selected_id="$(printf '%s\n' "$candidates" | awk -v n="$choice" 'NF{c++; if (c==n){print $1; exit}}')"
+    else
+      echo "Non-interactive mode: selecting first candidate automatically."
     fi
 
     if [[ -z "$selected_id" ]]; then

@@ -29,6 +29,18 @@ chmod +x install.sh
 During install, if `AIRPODS_ID` is empty, the installer auto-detects likely AirPods devices.
 If multiple candidates are found, it asks you which one to use.
 
+Non-interactive install (no prompts, picks first candidate):
+
+```bash
+./install.sh --non-interactive
+```
+
+Non-interactive with explicit device ID:
+
+```bash
+./install.sh --non-interactive --airpods-id 30-7a-d2-8e-97-c4
+```
+
 ## Uninstall
 
 ```bash
