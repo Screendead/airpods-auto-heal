@@ -78,6 +78,12 @@ chmod +x uninstall.sh
 ./uninstall.sh
 ```
 
+Uninstall and also remove root runtime artifacts:
+
+```bash
+./uninstall.sh --purge-root-state
+```
+
 ## Configure AirPods Device ID
 
 Edit:
@@ -199,6 +205,8 @@ shellcheck -s bash install.sh uninstall.sh templates/*.sh tests/smoke.sh
 
 Smoke checks are run in CI via:
 - `tests/smoke.sh`
+
+Smoke test coverage is documented in `tests/README.md`.
 
 Contribution workflow is documented in `CONTRIBUTING.md`.
 
