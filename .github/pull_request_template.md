@@ -5,7 +5,7 @@
 
 ## Verification
 
-- [ ] `shellcheck install.sh uninstall.sh templates/*.sh tests/smoke.sh`
+- [ ] `shellcheck -s bash install.sh uninstall.sh templates/*.sh tests/smoke.sh`
 - [ ] `./tests/smoke.sh`
 
 ## Safety Impact

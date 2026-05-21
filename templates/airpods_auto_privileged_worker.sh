@@ -14,13 +14,34 @@ load_config() {
   local line
   local key
   local value
+  local raw
+
+  trim_spaces() {
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+  }
+
+  normalize_value() {
+    local s
+    s="$(trim_spaces "$1")"
+    if [[ "$s" == \"*\" && "$s" == *\" ]]; then
+      s="${s:1:${#s}-2}"
+    elif [[ "$s" == \'.*\' && "$s" == *\' ]]; then
+      s="${s:1:${#s}-2}"
+    fi
+    printf '%s' "$s"
+  }
 
   [[ ! -f "$CONFIG_FILE" ]] && return
 
   while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -z "$line" || "$line" == \#* ]] && continue
-    key="${line%%=*}"
-    value="${line#*=}"
+    raw="$(trim_spaces "$line")"
+    [[ -z "$raw" || "$raw" == \#* ]] && continue
+    raw="${raw#export }"
+    key="$(trim_spaces "${raw%%=*}")"
+    value="$(normalize_value "${raw#*=}")"
     case "$key" in
       DRY_RUN)
         if [[ "$value" == "1" ]]; then
@@ -50,7 +71,10 @@ debug_msg() {
   fi
 }
 
-mkdir -p "$STATE_DIR"
+# Avoid recreating user cache directories as root; watcher should own this path.
+if [[ ! -d "$STATE_DIR" ]]; then
+  exit 0
+fi
 mkdir -p "$ROOT_STATE_DIR"
 chmod 755 "$ROOT_STATE_DIR" >/dev/null 2>&1 || true
 

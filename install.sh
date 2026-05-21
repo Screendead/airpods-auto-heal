@@ -174,6 +174,7 @@ fi
 
 sudo -v
 sudo install -d -m 755 /usr/local/libexec
+sudo install -d -m 755 /var/db/airpods-auto-heal
 sudo install -m 755 "$APP_DIR/airpods_auto_privileged_worker.sh" "$WORKER_PATH"
 sudo install -m 644 "$APP_DIR/com.screendead.airpods-auto-privileged.plist" "$ROOT_DAEMON_PATH"
 sudo launchctl bootout system "$ROOT_DAEMON_PATH" >/dev/null 2>&1 || true

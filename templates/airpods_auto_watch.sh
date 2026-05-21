@@ -53,11 +53,32 @@ load_config() {
   local line
   local key
   local value
+  local raw
+
+  trim_spaces() {
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+  }
+
+  normalize_value() {
+    local s
+    s="$(trim_spaces "$1")"
+    if [[ "$s" == \"*\" && "$s" == *\" ]]; then
+      s="${s:1:${#s}-2}"
+    elif [[ "$s" == \'.*\' && "$s" == *\' ]]; then
+      s="${s:1:${#s}-2}"
+    fi
+    printf '%s' "$s"
+  }
 
   while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -z "$line" || "$line" == \#* ]] && continue
-    key="${line%%=*}"
-    value="${line#*=}"
+    raw="$(trim_spaces "$line")"
+    [[ -z "$raw" || "$raw" == \#* ]] && continue
+    raw="${raw#export }"
+    key="$(trim_spaces "${raw%%=*}")"
+    value="$(normalize_value "${raw#*=}")"
     case "$key" in
       AIRPODS_ID)
         AIRPODS_ID="$value"

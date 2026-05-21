@@ -125,6 +125,7 @@ Threat/safety notes for runtime files:
 - action request queue is `~/.cache/airpods-auto/privileged.request` and is written with restrictive permissions (`0600`)
 - privileged action results are written under `/var/db/airpods-auto-heal` by root
 - root worker ignores symlink request files to reduce path-trick risks
+- installer creates `/var/db/airpods-auto-heal` before daemon bootstrap so launchd out/err targets are valid
 
 ## Failure Modes and Recovery Policy
 
