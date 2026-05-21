@@ -18,9 +18,9 @@
   <integer>5</integer>
 
   <key>StandardOutPath</key>
-  <string>__HOME__/.cache/airpods-auto/privileged.out</string>
+  <string>/var/db/airpods-auto-heal/launchd.out</string>
 
   <key>StandardErrorPath</key>
-  <string>__HOME__/.cache/airpods-auto/privileged.err</string>
+  <string>/var/db/airpods-auto-heal/launchd.err</string>
 </dict>
 </plist>

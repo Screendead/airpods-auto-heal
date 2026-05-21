@@ -19,3 +19,7 @@ jobs:
       - name: Run ShellCheck
         run: |
           shellcheck install.sh uninstall.sh templates/*.sh
+
+      - name: Run smoke checks
+        run: |
+          ./tests/smoke.sh

@@ -20,7 +20,7 @@ flowchart LR
 	A[User LaunchAgent\ncom.screendead.airpods-auto] -->|queue action| B[Request File\n~/.cache/airpods-auto/privileged.request]
 	B --> C[Root LaunchDaemon\ncom.screendead.airpods-auto-privileged]
 	C --> D[Privileged Actions\nifconfig awdl0/llw0\nkillall coreaudiod]
-	C --> E[Result File\n~/.cache/airpods-auto/privileged.result]
+	C --> E[Result File\n/var/db/airpods-auto-heal/privileged.result]
 	E --> A
 	A --> F[Notifications + Logs]
 ```
@@ -121,6 +121,11 @@ Privileged commands used:
 
 No network calls are made by runtime scripts beyond local system commands.
 
+Threat/safety notes for runtime files:
+- action request queue is `~/.cache/airpods-auto/privileged.request` and is written with restrictive permissions (`0600`)
+- privileged action results are written under `/var/db/airpods-auto-heal` by root
+- root worker ignores symlink request files to reduce path-trick risks
+
 ## Failure Modes and Recovery Policy
 
 Degradation signal window:
@@ -159,9 +164,11 @@ Expected notifications:
 ## Logs
 
 - `~/.cache/airpods-auto/agent.log`
-- `~/.cache/airpods-auto/privileged.log`
 - `~/.cache/airpods-auto/agent.err`
-- `~/.cache/airpods-auto/privileged.err`
+- `/var/db/airpods-auto-heal/privileged.log`
+- `/var/db/airpods-auto-heal/privileged.result`
+- `/var/db/airpods-auto-heal/launchd.out`
+- `/var/db/airpods-auto-heal/launchd.err`
 
 ## Manual Service Checks
 
@@ -182,6 +189,11 @@ Shell linting is run in CI using ShellCheck for:
 - `install.sh`
 - `uninstall.sh`
 - `templates/*.sh`
+
+Smoke checks are run in CI via:
+- `tests/smoke.sh`
+
+Contribution workflow is documented in `CONTRIBUTING.md`.
 
 ## License
 
