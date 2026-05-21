@@ -66,7 +66,13 @@ render_template() {
     "$src" > "$dest"
 }
 
+is_valid_bt_id() {
+  local id="$1"
+  [[ "$id" =~ ^([[:xdigit:]]{2}[:-]){5}[[:xdigit:]]{2}$ ]]
+}
+
 mkdir -p "$APP_DIR" "$CACHE_DIR" "$CONFIG_DIR" "$HOME_DIR/Library/LaunchAgents"
+chmod 700 "$CACHE_DIR" "$CONFIG_DIR" >/dev/null 2>&1 || true
 
 render_template "$ROOT_DIR/templates/airpods_auto_watch.sh" "$APP_DIR/airpods_auto_watch.sh"
 render_template "$ROOT_DIR/templates/airpods_auto_privileged_worker.sh" "$APP_DIR/airpods_auto_privileged_worker.sh"
@@ -83,6 +89,7 @@ if [[ ! -f "$CONFIG_DIR/config.env" ]]; then
     echo "DEBUG=0"
   } > "$CONFIG_DIR/config.env"
 fi
+chmod 600 "$CONFIG_DIR/config.env" >/dev/null 2>&1 || true
 
 if [[ -n "$DRY_RUN_MODE" || -n "$DEBUG_MODE" ]]; then
   awk -v dry_run="$DRY_RUN_MODE" -v debug="$DEBUG_MODE" '
@@ -106,9 +113,14 @@ if [[ -n "$DRY_RUN_MODE" || -n "$DEBUG_MODE" ]]; then
     }
   ' "$CONFIG_DIR/config.env" > "$CONFIG_DIR/config.env.tmp"
   mv "$CONFIG_DIR/config.env.tmp" "$CONFIG_DIR/config.env"
+  chmod 600 "$CONFIG_DIR/config.env" >/dev/null 2>&1 || true
 fi
 
 if [[ -n "$AIRPODS_ID_OVERRIDE" ]]; then
+  if ! is_valid_bt_id "$AIRPODS_ID_OVERRIDE"; then
+    echo "Invalid Bluetooth ID format for --airpods-id: $AIRPODS_ID_OVERRIDE" >&2
+    exit 64
+  fi
   "$APP_DIR/detect_airpods_id.sh" --write-id "$AIRPODS_ID_OVERRIDE" >/dev/null
   echo "Configured AIRPODS_ID from --airpods-id: $AIRPODS_ID_OVERRIDE"
 fi
@@ -116,11 +128,15 @@ fi
 current_airpods_id="$(awk -F= '/^AIRPODS_ID=/{print $2}' "$CONFIG_DIR/config.env" 2>/dev/null | tail -n 1)"
 if [[ -z "$current_airpods_id" ]]; then
   echo "AIRPODS_ID is empty; attempting auto-detection..."
-  candidates="$($APP_DIR/detect_airpods_id.sh --list 2>/dev/null || true)"
+  candidates="$("$APP_DIR/detect_airpods_id.sh" --list 2>/dev/null || true)"
   candidate_count="$(printf '%s\n' "$candidates" | awk 'NF{c++} END{print c+0}')"
 
   if [[ "$candidate_count" -eq 1 ]]; then
     selected_id="$(printf '%s\n' "$candidates" | awk 'NF{print $1; exit}')"
+    if ! is_valid_bt_id "$selected_id"; then
+      echo "Detected AirPods ID has invalid format: $selected_id" >&2
+      exit 64
+    fi
     "$APP_DIR/detect_airpods_id.sh" --write-id "$selected_id" >/dev/null
     echo "Auto-selected AIRPODS_ID: $selected_id"
   elif [[ "$candidate_count" -gt 1 ]]; then
@@ -144,6 +160,11 @@ if [[ -z "$current_airpods_id" ]]; then
       echo "No valid selection; defaulting to first candidate: $selected_id"
     fi
 
+    if ! is_valid_bt_id "$selected_id"; then
+      echo "Selected AirPods ID has invalid format: $selected_id" >&2
+      exit 64
+    fi
+
     "$APP_DIR/detect_airpods_id.sh" --write-id "$selected_id" >/dev/null
     echo "Configured AIRPODS_ID: $selected_id"
   else
@@ -153,6 +174,7 @@ fi
 
 sudo -v
 sudo install -d -m 755 /usr/local/libexec
+sudo install -d -m 755 /var/db/airpods-auto-heal
 sudo install -m 755 "$APP_DIR/airpods_auto_privileged_worker.sh" "$WORKER_PATH"
 sudo install -m 644 "$APP_DIR/com.screendead.airpods-auto-privileged.plist" "$ROOT_DAEMON_PATH"
 sudo launchctl bootout system "$ROOT_DAEMON_PATH" >/dev/null 2>&1 || true

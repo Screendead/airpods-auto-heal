@@ -12,13 +12,15 @@ CONFIG_FILE="$CONFIG_DIR/config.env"
 STATE_FILE="$STATE_DIR/state.env"
 LOG_FILE="$STATE_DIR/agent.log"
 REQUEST_FILE="$STATE_DIR/privileged.request"
-RESULT_FILE="$STATE_DIR/privileged.result"
+RESULT_FILE="/var/db/airpods-auto-heal/privileged.result"
 APP_DIR="__HOME__/Library/Application Support/airpods-auto-heal"
 BLUEUTIL_BIN=""
 DRY_RUN=0
 DEBUG=0
+AIRPODS_ID=""
 
 mkdir -p "$STATE_DIR" "$CONFIG_DIR"
+chmod 700 "$STATE_DIR" "$CONFIG_DIR" >/dev/null 2>&1 || true
 
 log_msg() {
   printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >>"$LOG_FILE"
@@ -42,6 +44,72 @@ notify_user() {
   fi
 }
 
+is_valid_bt_id() {
+  local id="$1"
+  [[ "$id" =~ ^([[:xdigit:]]{2}[:-]){5}[[:xdigit:]]{2}$ ]]
+}
+
+load_config() {
+  local line
+  local key
+  local value
+  local raw
+
+  trim_spaces() {
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+  }
+
+  normalize_value() {
+    local s
+    local first
+    local last
+    s="$(trim_spaces "$1")"
+    if [[ ${#s} -ge 2 ]]; then
+      first="${s:0:1}"
+      last="${s: -1}"
+    else
+      first=""
+      last=""
+    fi
+    if [[ "$first" == '"' && "$last" == '"' ]]; then
+      s="${s:1:${#s}-2}"
+    elif [[ "$first" == "'" && "$last" == "'" ]]; then
+      s="${s:1:${#s}-2}"
+    fi
+    printf '%s' "$s"
+  }
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    raw="$(trim_spaces "$line")"
+    [[ -z "$raw" || "$raw" == \#* ]] && continue
+    raw="${raw#export }"
+    key="$(trim_spaces "${raw%%=*}")"
+    value="$(normalize_value "${raw#*=}")"
+    case "$key" in
+      AIRPODS_ID)
+        AIRPODS_ID="$value"
+        ;;
+      DRY_RUN)
+        if [[ "$value" == "1" ]]; then
+          DRY_RUN=1
+        else
+          DRY_RUN=0
+        fi
+        ;;
+      DEBUG)
+        if [[ "$value" == "1" ]]; then
+          DEBUG=1
+        else
+          DEBUG=0
+        fi
+        ;;
+    esac
+  done <"$CONFIG_FILE"
+}
+
 if [[ ! -f "$CONFIG_FILE" ]]; then
   {
     echo "AIRPODS_ID="
@@ -51,10 +119,16 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 fi
 
 AIRPODS_ID="$AIRPODS_ID_DEFAULT"
-source "$CONFIG_FILE" 2>/dev/null || true
+load_config
 
 if [[ -z "$AIRPODS_ID" && -x "$APP_DIR/detect_airpods_id.sh" ]]; then
   AIRPODS_ID="$("$APP_DIR/detect_airpods_id.sh" --first 2>/dev/null || true)"
+fi
+
+if [[ -n "$AIRPODS_ID" ]] && ! is_valid_bt_id "$AIRPODS_ID"; then
+  log_msg "AIRPODS_ID has invalid format in config: $AIRPODS_ID"
+  notify_user "AirPods Auto-Heal setup needed" "AIRPODS_ID format is invalid in config.env"
+  exit 0
 fi
 
 if [[ -z "$AIRPODS_ID" ]]; then
@@ -90,8 +164,11 @@ request_privileged() {
     return 0
   fi
 
-  printf '%s\n' "$action" >"$REQUEST_FILE"
-  chmod 666 "$REQUEST_FILE" >/dev/null 2>&1 || true
+  if [[ -L "$REQUEST_FILE" ]]; then
+    rm -f "$REQUEST_FILE"
+  fi
+  (umask 077; printf '%s\n' "$action" >"$REQUEST_FILE")
+  chmod 600 "$REQUEST_FILE" >/dev/null 2>&1 || true
   last_request_action="$action"
   last_request_epoch=$now_epoch
   log_msg "$note"
@@ -194,6 +271,7 @@ last_seen_result_epoch=0
 degrade_alert_active=0
 last_degrade_notify_epoch=0
 if [[ -f "$STATE_FILE" ]]; then
+  # shellcheck disable=SC1090
   source "$STATE_FILE" 2>/dev/null || true
 fi
 
