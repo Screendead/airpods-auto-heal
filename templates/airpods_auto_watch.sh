@@ -64,10 +64,19 @@ load_config() {
 
   normalize_value() {
     local s
+    local first
+    local last
     s="$(trim_spaces "$1")"
-    if [[ "$s" == \"*\" && "$s" == *\" ]]; then
+    if [[ ${#s} -ge 2 ]]; then
+      first="${s:0:1}"
+      last="${s: -1}"
+    else
+      first=""
+      last=""
+    fi
+    if [[ "$first" == '"' && "$last" == '"' ]]; then
       s="${s:1:${#s}-2}"
-    elif [[ "$s" == \'.*\' && "$s" == *\' ]]; then
+    elif [[ "$first" == "'" && "$last" == "'" ]]; then
       s="${s:1:${#s}-2}"
     fi
     printf '%s' "$s"
