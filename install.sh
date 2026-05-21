@@ -113,6 +113,7 @@ if [[ -n "$DRY_RUN_MODE" || -n "$DEBUG_MODE" ]]; then
     }
   ' "$CONFIG_DIR/config.env" > "$CONFIG_DIR/config.env.tmp"
   mv "$CONFIG_DIR/config.env.tmp" "$CONFIG_DIR/config.env"
+  chmod 600 "$CONFIG_DIR/config.env" >/dev/null 2>&1 || true
 fi
 
 if [[ -n "$AIRPODS_ID_OVERRIDE" ]]; then
