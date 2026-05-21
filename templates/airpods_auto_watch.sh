@@ -13,35 +13,58 @@ STATE_FILE="$STATE_DIR/state.env"
 LOG_FILE="$STATE_DIR/agent.log"
 REQUEST_FILE="$STATE_DIR/privileged.request"
 RESULT_FILE="$STATE_DIR/privileged.result"
+APP_DIR="__HOME__/Library/Application Support/airpods-auto-heal"
 BLUEUTIL_BIN=""
+DRY_RUN=0
+DEBUG=0
 
 mkdir -p "$STATE_DIR" "$CONFIG_DIR"
+
+log_msg() {
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >>"$LOG_FILE"
+}
+
+debug_msg() {
+  if [[ "$DEBUG" -eq 1 ]]; then
+    log_msg "DEBUG: $1"
+  fi
+}
+
+notify_user() {
+  local title="$1"
+  local body="$2"
+  local subtitle="${3:-}"
+
+  if [[ -n "$subtitle" ]]; then
+    /usr/bin/osascript -e "display notification \"$body\" with title \"$title\" subtitle \"$subtitle\"" >/dev/null 2>&1 || true
+  else
+    /usr/bin/osascript -e "display notification \"$body\" with title \"$title\"" >/dev/null 2>&1 || true
+  fi
+}
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
   {
     echo "AIRPODS_ID="
+    echo "DRY_RUN=0"
+    echo "DEBUG=0"
   } >"$CONFIG_FILE"
 fi
 
 AIRPODS_ID="$AIRPODS_ID_DEFAULT"
 source "$CONFIG_FILE" 2>/dev/null || true
 
-if [[ -z "$AIRPODS_ID" && -x "__HOME__/Library/Application Support/airpods-auto-heal/detect_airpods_id.sh" ]]; then
-  AIRPODS_ID="$(__HOME__/Library/Application Support/airpods-auto-heal/detect_airpods_id.sh --first 2>/dev/null || true)"
+if [[ -z "$AIRPODS_ID" && -x "$APP_DIR/detect_airpods_id.sh" ]]; then
+  AIRPODS_ID="$("$APP_DIR/detect_airpods_id.sh" --first 2>/dev/null || true)"
 fi
 
 if [[ -z "$AIRPODS_ID" ]]; then
   if [[ ! -f "$STATE_DIR/.airpods_id_missing_logged" ]]; then
     log_msg "AIRPODS_ID is not configured and no AirPods candidate could be auto-detected."
-    /usr/bin/osascript -e 'display notification "Set AIRPODS_ID in ~/.config/airpods-auto-heal/config.env" with title "AirPods Auto-Heal setup needed"' >/dev/null 2>&1 || true
+    notify_user "AirPods Auto-Heal setup needed" "Set AIRPODS_ID in ~/.config/airpods-auto-heal/config.env"
     : >"$STATE_DIR/.airpods_id_missing_logged"
   fi
   exit 0
 fi
-
-log_msg() {
-  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >>"$LOG_FILE"
-}
 
 request_privileged() {
   local action="$1"
@@ -57,6 +80,13 @@ request_privileged() {
   fi
 
   if [[ "$last_request_action" == "$action" && $((now_epoch - last_request_epoch)) -lt "$REQUEST_MIN_INTERVAL_SECONDS" ]]; then
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log_msg "DRY_RUN: $note"
+    last_request_action="$action"
+    last_request_epoch=$now_epoch
     return 0
   fi
 
@@ -168,14 +198,15 @@ if [[ -f "$STATE_FILE" ]]; then
 fi
 
 now_epoch=$(date +%s)
+debug_msg "Watcher tick started."
 notify_completion_if_any
 
 if [[ "$prev_connected" -ne "$connected" ]]; then
   if [[ "$connected" -eq 1 ]]; then
-    /usr/bin/osascript -e 'display notification "AirPods connected" with title "AirPods Auto-Heal"' >/dev/null 2>&1 || true
+    notify_user "AirPods Auto-Heal" "AirPods connected"
     log_msg "AirPods connection event: connected."
   elif [[ "$prev_connected" -ne -1 ]]; then
-    /usr/bin/osascript -e 'display notification "AirPods disconnected" with title "AirPods Auto-Heal"' >/dev/null 2>&1 || true
+    notify_user "AirPods Auto-Heal" "AirPods disconnected"
     log_msg "AirPods connection event: disconnected."
   fi
 fi
@@ -204,7 +235,7 @@ if [[ "$connected" -ne 1 ]]; then
         last_restore_attempt_epoch=$now_epoch
         request_privileged "continuity_restore" "Requested continuity restore after disconnect (awdl0/llw0 up)."
         restore_done=1
-        /usr/bin/osascript -e 'display notification "Continuity restore requested" with title "AirPods Auto-Heal" subtitle "Applying awdl0/llw0 up"' >/dev/null 2>&1 || true
+        notify_user "AirPods Auto-Heal" "Continuity restore requested" "Applying awdl0/llw0 up"
       fi
     else
       restore_done=1
@@ -221,7 +252,7 @@ last_restore_attempt_epoch=0
 
 if [[ "$awdl_up" -eq 1 || "$llw_up" -eq 1 ]]; then
   request_privileged "stable_on" "Requested stable mode enforcement (awdl0/llw0 down)."
-  /usr/bin/osascript -e 'display notification "Stable mode requested" with title "AirPods Auto-Heal" subtitle "Applying awdl0/llw0 down"' >/dev/null 2>&1 || true
+  notify_user "AirPods Auto-Heal" "Stable mode requested" "Applying awdl0/llw0 down"
 fi
 
 bt_lines="$(log show --last 30s --style compact --predicate 'process == "bluetoothd"' 2>/dev/null | grep -Ei 'A2DP packet flushed|A2DP LinkQualityReport|NoSync|ReTx')"
@@ -251,7 +282,7 @@ if [[ "$severe" -eq 1 ]]; then
   streak=$((streak + 1))
 
   if [[ "$degrade_alert_active" -eq 0 && $((now_epoch - last_degrade_notify_epoch)) -ge "$DEGRADE_NOTIFY_COOLDOWN_SECONDS" ]]; then
-    /usr/bin/osascript -e "display notification \"ReTx ${retx_max}%, flush ${flush_count}, NoSync ${nosync_max}\" with title \"AirPods audio degradation detected\"" >/dev/null 2>&1 || true
+    notify_user "AirPods audio degradation detected" "ReTx ${retx_max}%, flush ${flush_count}, NoSync ${nosync_max}"
     log_msg "Degradation detected (retx_max=$retx_max flush=$flush_count nosync=$nosync_max)."
     degrade_alert_active=1
     last_degrade_notify_epoch=$now_epoch
@@ -273,7 +304,7 @@ if [[ "$can_recover" -eq 1 ]]; then
   request_privileged "recover" "Requested auto-recover (retx_max=$retx_max flush=$flush_count nosync=$nosync_max)."
   last_recover_epoch=$now_epoch
   streak=0
-  /usr/bin/osascript -e 'display notification "Auto-recover requested" with title "AirPods Auto-Heal" subtitle "Detected sustained audio degradation"' >/dev/null 2>&1 || true
+  notify_user "AirPods Auto-Heal" "Auto-recover requested" "Detected sustained audio degradation"
 fi
 
 save_state

@@ -3,6 +3,8 @@ set -euo pipefail
 
 NON_INTERACTIVE=0
 AIRPODS_ID_OVERRIDE=""
+DRY_RUN_MODE=""
+DEBUG_MODE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,13 +19,21 @@ while [[ $# -gt 0 ]]; do
       fi
       AIRPODS_ID_OVERRIDE="$1"
       ;;
+    --dry-run)
+      DRY_RUN_MODE=1
+      ;;
+    --debug)
+      DEBUG_MODE=1
+      ;;
     -h|--help)
       cat <<'EOF'
-Usage: ./install.sh [--non-interactive] [--airpods-id <BT_MAC>]
+Usage: ./install.sh [--non-interactive] [--airpods-id <BT_MAC>] [--dry-run] [--debug]
 
 Options:
   --non-interactive      Avoid prompts; first detected candidate is used.
   --airpods-id <BT_MAC>  Force a specific AirPods Bluetooth MAC/ID.
+  --dry-run              Do not execute privileged recover actions.
+  --debug                Increase logging verbosity.
 EOF
       exit 0
       ;;
@@ -69,7 +79,33 @@ chmod 755 "$APP_DIR/airpods_auto_watch.sh" "$APP_DIR/airpods_auto_privileged_wor
 if [[ ! -f "$CONFIG_DIR/config.env" ]]; then
   {
     echo "AIRPODS_ID="
+    echo "DRY_RUN=0"
+    echo "DEBUG=0"
   } > "$CONFIG_DIR/config.env"
+fi
+
+if [[ -n "$DRY_RUN_MODE" || -n "$DEBUG_MODE" ]]; then
+  awk -v dry_run="$DRY_RUN_MODE" -v debug="$DEBUG_MODE" '
+    BEGIN {seen_dry=0; seen_debug=0}
+    /^DRY_RUN=/ {
+      if (dry_run != "") print "DRY_RUN=" dry_run
+      else print $0
+      seen_dry=1
+      next
+    }
+    /^DEBUG=/ {
+      if (debug != "") print "DEBUG=" debug
+      else print $0
+      seen_debug=1
+      next
+    }
+    {print}
+    END {
+      if (!seen_dry) print "DRY_RUN=" (dry_run == "" ? "0" : dry_run)
+      if (!seen_debug) print "DEBUG=" (debug == "" ? "0" : debug)
+    }
+  ' "$CONFIG_DIR/config.env" > "$CONFIG_DIR/config.env.tmp"
+  mv "$CONFIG_DIR/config.env.tmp" "$CONFIG_DIR/config.env"
 fi
 
 if [[ -n "$AIRPODS_ID_OVERRIDE" ]]; then
